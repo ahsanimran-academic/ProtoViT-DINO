@@ -4,12 +4,12 @@ import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 import torch.nn.functional as F
 
-from tools.deit_features import deit_tiny_patch_features, deit_small_patch_features
+from tools.deit_features import deit_tiny_patch_features, deit_small_patch_features, deit_base_patch_features
 from tools.cait_features import cait_xxs24_224_features
 
 base_architecture_to_features = {'deit_small_patch16_224': deit_small_patch_features,
                                  'deit_tiny_patch16_224': deit_tiny_patch_features,
-                                 #'deit_base_patch16_224':deit_base_patch16_224,
+                                 'deit_base_patch16_224': deit_base_patch_features,
                                  'cait_xxs24_224': cait_xxs24_224_features,}
 
 class PPNet(nn.Module):

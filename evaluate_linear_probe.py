@@ -17,7 +17,7 @@ from protovit_dino_model import ProtoViTBase
 config = {
     # --- PATHS ---
     'student_checkpoint_path': './saved_models/protovit_dino/student_epoch_100.pth', # IMPORTANT: Set this to your trained model
-    'cub_train_dir': './datasets/cub200_cropped/train_cropped', # IMPORTANT: Path to labeled training set
+    'cub_train_dir': './datasets/cub200_cropped/train_cropped_augmented', # IMPORTANT: Path to labeled training set
     'cub_test_dir': './datasets/cub200_cropped/test_cropped',   # IMPORTANT: Path to labeled test set
 
     # --- MODEL ARCHITECTURE (Must match the trained model) ---
@@ -30,7 +30,7 @@ config = {
     # --- LINEAR PROBE TRAINING ---
     'num_classes': 200, # CUB-200-2011 has 200 species
     'batch_size': 128,
-    'epochs': 200,
+    'epochs': 50,
     'learning_rate': 0.01,
     'weight_decay': 1e-6,
     

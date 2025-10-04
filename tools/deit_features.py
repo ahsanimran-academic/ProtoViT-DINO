@@ -18,3 +18,11 @@ def deit_small_patch_features(pretrained=True, **kwargs):
     model = timm.create_model('deit_small_patch16_224', pretrained=pretrained, **kwargs)
     model.eval()
     return model
+
+def deit_base_patch_features(pretrained=True, **kwargs):
+    """
+    Loads the feature extractor of a pretrained DeiT-Base model.
+    """
+    model = timm.create_model('deit_base_patch16_224', pretrained=pretrained, **kwargs)
+    model.eval()
+    return model
