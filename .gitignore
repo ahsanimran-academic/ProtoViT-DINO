@@ -1,0 +1,21 @@
+datasets/
+prototype_projections/
+# Python
+__pycache__/
+*.pyc
+
+# Checkpoints / models / runs
+*.pt
+*.pth
+*.ckpt
+runs/
+outputs/
+wandb/
+logs/
+*.log
+saved_models/
+
+# Notebooks & misc
+*.ipynb_checkpoints/
+.DS_Store
+EOF
