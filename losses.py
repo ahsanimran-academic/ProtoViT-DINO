@@ -69,3 +69,36 @@ class CoherenceDecorrelationLoss(nn.Module):
         loss_decorr = (cov_matrix - torch.eye(cov_matrix.shape[0]).to(cov_matrix.device)).pow(2).sum()
 
         return loss_coh, loss_decorr
+
+class PrototypeNCELoss(nn.Module):
+    """
+    InfoNCE-style contrastive loss for prototype score vectors.
+    Pushes prototype activations from two views of the same image together,
+    and pushes them apart from activations of other images in the batch.
+    """
+    def __init__(self, temperature=0.1):
+        super().__init__()
+        self.temperature = temperature
+        self.loss_fn = nn.CrossEntropyLoss()
+
+    def forward(self, scores1, scores2):
+        # scores1 and scores2 shape: [batch_size, num_prototypes]
+        
+        # L2 normalize the feature vectors
+        scores1 = F.normalize(scores1, dim=1)
+        scores2 = F.normalize(scores2, dim=1)
+        
+        # Calculate cosine similarity matrix
+        # The (i, j) entry is the similarity between view1 of image i and view2 of image j
+        logits = torch.mm(scores1, scores2.T) / self.temperature
+        
+        # The positive pairs are on the diagonal (i, i)
+        # Create ground-truth labels
+        batch_size = scores1.shape[0]
+        labels = torch.arange(batch_size, device=scores1.device)
+        
+        # Calculate loss symmetrically
+        loss_12 = self.loss_fn(logits, labels)
+        loss_21 = self.loss_fn(logits.T, labels)
+        
+        return (loss_12 + loss_21) / 2.0

@@ -16,21 +16,21 @@ from protovit_dino_model import ProtoViTBase
 # --- Main Configuration ---
 config = {
     # --- PATHS ---
-    'student_checkpoint_path': './saved_models/protovit_dino/student_epoch_100.pth', # IMPORTANT: Set this to your trained model
-    'cub_train_dir': './datasets/cub200_cropped/train_cropped_augmented', # IMPORTANT: Path to labeled training set
+    'student_checkpoint_path': './saved_models/protovit_dino/best_model.pth', # IMPORTANT: Set this to your trained model
+    'cub_train_dir': './datasets/cub200_cropped/train_cropped', # IMPORTANT: Path to labeled training set
     'cub_test_dir': './datasets/cub200_cropped/test_cropped',   # IMPORTANT: Path to labeled test set
 
     # --- MODEL ARCHITECTURE (Must match the trained model) ---
-    'base_architecture': 'deit_small_patch16_224',
+    'base_architecture': 'deit_base_patch16_224',
     'img_size': 224,
-    'prototype_shape': (256, 384, 4), # M, d, K
+    'prototype_shape': (256, 768, 4), # M, d, K
     'radius': 1,
     'sig_temp': 100.0,
     
     # --- LINEAR PROBE TRAINING ---
     'num_classes': 200, # CUB-200-2011 has 200 species
     'batch_size': 128,
-    'epochs': 50,
+    'epochs': 200,
     'learning_rate': 0.01,
     'weight_decay': 1e-6,
     
