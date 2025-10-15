@@ -5,7 +5,6 @@ import torch.nn.functional as F
 from copy import deepcopy
 
 # --- NO CHANGES in ProtoViTBase ---
-# This class remains exactly as you provided it.
 class ProtoViTBase(nn.Module):
     def __init__(self, features, img_size, prototype_shape, radius=1, sig_temp=100.0):
         super().__init__()
@@ -20,7 +19,6 @@ class ProtoViTBase(nn.Module):
         self.patch_select = nn.Parameter(torch.ones(1, self.num_prototypes, prototype_shape[-1]) * 0.1, requires_grad=True)
         self.arc = 'deit' if 'deit' in str(features).lower() else 'other'
 
-    # ... (conv_features, subpatch_dist, greedy_distance, forward, push_forward methods are all correct and unchanged) ...
     def conv_features(self, x):
         x = self.features.patch_embed(x)
         cls_token = self.features.cls_token.expand(x.shape[0], -1, -1)

@@ -25,7 +25,7 @@ config = {
     # --- MODEL ARCHITECTURE (CRITICAL: Must match the checkpoint from train.py) ---
     'base_architecture': 'deit_base_patch16_224',
     'img_size': 224,
-    'prototype_shape': (256, 768, 4), # M, D, K
+    'prototype_shape': (512, 768, 4), # M, D, K
     
     # --- FINE-TUNING PARAMETERS ---
     'num_classes': 200,

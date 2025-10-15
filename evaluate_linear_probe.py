@@ -1,162 +1,151 @@
-# evaluate_linear_probe.py
+# evaluate_linear_probe.py (Upgraded with Validation and Best Model Saving)
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms
 from torchvision.datasets import ImageFolder
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 import os
 
-# --- We need to borrow from your existing model files ---
-# This assumes your original model definition files are in the same directory
 from model import construct_PPNet
 from protovit_dino_model import ProtoViTBase
 
 # --- Main Configuration ---
 config = {
-    # --- PATHS ---
-    'student_checkpoint_path': './saved_models/protovit_dino/best_model.pth', # IMPORTANT: Set this to your trained model
-    'cub_train_dir': './datasets/cub200_cropped/train_cropped', # IMPORTANT: Path to labeled training set
-    'cub_test_dir': './datasets/cub200_cropped/test_cropped',   # IMPORTANT: Path to labeled test set
-
-    # --- MODEL ARCHITECTURE (Must match the trained model) ---
+    'student_checkpoint_path': './saved_models/protovit_dino/best_model.pth',
+    'cub_train_dir': './datasets/cub200_cropped/train_cropped/',
+    'cub_test_dir': './datasets/cub200_cropped/test_cropped/',
+    'save_dir': './saved_models/protovit_dino/',
+    
     'base_architecture': 'deit_base_patch16_224',
     'img_size': 224,
-    'prototype_shape': (256, 768, 4), # M, d, K
-    'radius': 1,
-    'sig_temp': 100.0,
+    'prototype_shape': (512, 768, 4),
     
-    # --- LINEAR PROBE TRAINING ---
-    'num_classes': 200, # CUB-200-2011 has 200 species
+    'num_classes': 200,
     'batch_size': 128,
-    'epochs': 200,
+    'epochs': 350,
     'learning_rate': 0.01,
     'weight_decay': 1e-6,
     
-    # --- FEATURE SELECTION ---
-    # Choose 'proto_scores' or 'cls_token'
+    'validation_split': 0.1, # <<< ADDED: Use 10% of training data for validation
+    
     'feature_source': 'proto_scores' 
 }
 
+# <<< ADDED: A dedicated evaluation function to avoid code duplication >>>
+def evaluate(backbone, probe, dataloader, device, criterion, feature_source_cfg):
+    backbone.eval()
+    probe.eval()
+    running_loss = 0.0
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for images, labels in dataloader:
+            images, labels = images.to(device), labels.to(device)
+            
+            cls_token, proto_scores = backbone(images)
+            features = proto_scores if feature_source_cfg == 'proto_scores' else cls_token
+            
+            outputs = probe(features)
+            loss = criterion(outputs, labels)
+            running_loss += loss.item()
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    accuracy = 100 * correct / total
+    avg_loss = running_loss / len(dataloader)
+    return avg_loss, accuracy
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
+    os.makedirs(config['save_dir'], exist_ok=True)
 
-    # 1. ## LOAD THE TRAINED STUDENT MODEL ##
-    print("Loading pretrained student model...")
-    # Reconstruct the model architecture exactly as during training
-    vit_features = construct_PPNet(
-        base_architecture=config['base_architecture'],
-        pretrained=True,
-        img_size=config['img_size'],
-        prototype_shape=config['prototype_shape'],
-        num_classes=1
-    ).features
-
-    # Instantiate the base model (not the DINO wrapper)
-    model = ProtoViTBase(
-        features=vit_features,
-        img_size=config['img_size'],
-        prototype_shape=config['prototype_shape'],
-        radius=config['radius'],
-        sig_temp=config['sig_temp']
-    ).to(device)
-
-    # Load the saved weights from your SSL training
+    # 1. ## LOAD AND FREEZE THE TRAINED STUDENT MODEL ##
+    print(f"Loading student model from: {config['student_checkpoint_path']}")
+    vit_features = construct_PPNet(base_architecture=config['base_architecture'], pretrained=True, img_size=config['img_size'], prototype_shape=config['prototype_shape'], num_classes=1).features
+    model = ProtoViTBase(features=vit_features, img_size=config['img_size'], prototype_shape=config['prototype_shape']).to(device)
     model.load_state_dict(torch.load(config['student_checkpoint_path'], map_location=device))
-    
-    # --- CRITICAL: Freeze the backbone ---
     model.eval()
     for param in model.parameters():
         param.requires_grad = False
     print("Student model loaded and frozen.")
 
-    # 2. ## PREPARE THE LABELED DATA ##
-    # Use standard evaluation transforms
+    # 2. ## PREPARE DATA WITH VALIDATION SPLIT ##
+    print("Preparing data with a validation split...")
     eval_transform = transforms.Compose([
         transforms.Resize((config['img_size'], config['img_size'])),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     
-    train_dataset = ImageFolder(root=config['cub_train_dir'], transform=eval_transform)
+    # <<< CHANGED: Splitting the original training data >>>
+    full_train_dataset = ImageFolder(root=config['cub_train_dir'], transform=eval_transform)
+    val_size = int(len(full_train_dataset) * config['validation_split'])
+    train_size = len(full_train_dataset) - val_size
+    train_subset, val_subset = random_split(full_train_dataset, [train_size, val_size])
+    
     test_dataset = ImageFolder(root=config['cub_test_dir'], transform=eval_transform)
     
-    train_loader = DataLoader(train_dataset, batch_size=config['batch_size'], shuffle=True, num_workers=4, pin_memory=True)
+    train_loader = DataLoader(train_subset, batch_size=config['batch_size'], shuffle=True, num_workers=4, pin_memory=True)
+    val_loader = DataLoader(val_subset, batch_size=config['batch_size'], shuffle=False, num_workers=4)
     test_loader = DataLoader(test_dataset, batch_size=config['batch_size'], shuffle=False, num_workers=4, pin_memory=True)
-    print(f"Data loaded: {len(train_dataset)} train images, {len(test_dataset)} test images.")
+    print(f"Data loaded: {len(train_subset)} train, {len(val_subset)} validation, {len(test_dataset)} test images.")
 
     # 3. ## DEFINE THE LINEAR CLASSIFIER ##
     if config['feature_source'] == 'proto_scores':
-        # Feature dimension is the number of prototypes (M)
         feature_dim = config['prototype_shape'][0]
-    elif config['feature_source'] == 'cls_token':
-        # Feature dimension is the ViT embedding dimension (d)
-        feature_dim = config['prototype_shape'][1]
     else:
-        raise ValueError("feature_source must be 'proto_scores' or 'cls_token'")
-
+        feature_dim = config['prototype_shape'][1]
     linear_classifier = nn.Linear(feature_dim, config['num_classes']).to(device)
     print(f"Created linear classifier with input dimension {feature_dim}.")
 
-    # 4. ## TRAIN THE LINEAR CLASSIFIER ##
+    # 4. ## TRAIN THE LINEAR CLASSIFIER WITH VALIDATION ##
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(linear_classifier.parameters(), lr=config['learning_rate'], weight_decay=config['weight_decay'], momentum=0.9)
     
+    # <<< ADDED: Variables to track the best probe >>>
+    best_val_accuracy = 0.0
+    best_probe_path = os.path.join(config['save_dir'], 'best_linear_probe.pth')
+
     for epoch in range(config['epochs']):
         linear_classifier.train()
         running_loss = 0.0
-        for images, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{config['epochs']}"):
+        for images, labels in tqdm(train_loader, desc=f"Training Probe Epoch {epoch+1}/{config['epochs']}"):
             images, labels = images.to(device), labels.to(device)
-            
             with torch.no_grad():
-                # Extract features from the frozen backbone
                 cls_token, proto_scores = model(images)
-                
-                if config['feature_source'] == 'proto_scores':
-                    features = proto_scores
-                else: # cls_token
-                    features = cls_token
-
-            # Forward pass through the linear layer
+                features = proto_scores if config['feature_source'] == 'proto_scores' else cls_token
             outputs = linear_classifier(features)
             loss = criterion(outputs, labels)
-            
-            # Backward pass and optimization
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
         
-        print(f"Epoch {epoch+1} Loss: {running_loss / len(train_loader):.4f}")
+        avg_train_loss = running_loss / len(train_loader)
+        
+        # <<< ADDED: Validation step at the end of each epoch >>>
+        val_loss, val_accuracy = evaluate(model, linear_classifier, val_loader, device, criterion, config['feature_source'])
+        print(f"Epoch {epoch+1} | Train Loss: {avg_train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Acc: {val_accuracy:.2f}%")
 
-    # 5. ## EVALUATE THE TRAINED CLASSIFIER ##
-    print("Evaluating on the test set...")
-    linear_classifier.eval()
-    correct = 0
-    total = 0
-    with torch.no_grad():
-        for images, labels in tqdm(test_loader, desc="Testing"):
-            images, labels = images.to(device), labels.to(device)
-            
-            # Extract features
-            cls_token, proto_scores = model(images)
-            if config['feature_source'] == 'proto_scores':
-                features = proto_scores
-            else: # cls_token
-                features = cls_token
+        # <<< ADDED: Save the best probe based on validation accuracy >>>
+        if val_accuracy > best_val_accuracy:
+            best_val_accuracy = val_accuracy
+            torch.save(linear_classifier.state_dict(), best_probe_path)
+            print(f"*** New best linear probe saved with Val Acc: {best_val_accuracy:.2f}% ***")
 
-            # Get predictions
-            outputs = linear_classifier(features)
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
+    # 5. ## FINAL EVALUATION USING THE BEST SAVED PROBE ##
+    print("\n--- Final Evaluation on Test Set ---")
+    print(f"Loading best linear probe from {best_probe_path} (Val Acc: {best_val_accuracy:.2f}%)")
+    linear_classifier.load_state_dict(torch.load(best_probe_path))
+    
+    # <<< CHANGED: Call the evaluate helper function for the final test >>>
+    test_loss, test_accuracy = evaluate(model, linear_classifier, test_loader, device, criterion, config['feature_source'])
 
-    accuracy = 100 * correct / total
     print("\n" + "="*50)
-    print(f"Linear Probe Final Accuracy: {accuracy:.2f}%")
+    print(f"📊 Linear Probe Final Test Accuracy: {test_accuracy:.2f}%")
     print("="*50)
 
 if __name__ == '__main__':

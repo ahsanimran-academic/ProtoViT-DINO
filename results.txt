@@ -1,0 +1,86 @@
+1. Linear probe:
+# --- Main Configuration ---
+config = {
+    'student_checkpoint_path': './saved_models/protovit_dino/best_model.pth',
+    'cub_train_dir': './datasets/cub200_cropped/train_cropped/',
+    'cub_test_dir': './datasets/cub200_cropped/test_cropped/',
+    'save_dir': './saved_models/protovit_dino/',
+    
+    'base_architecture': 'deit_base_patch16_224',
+    'img_size': 224,
+    'prototype_shape': (512, 768, 4),
+    
+    'num_classes': 200,
+    'batch_size': 128,
+    'epochs': 350,
+    'learning_rate': 0.01,
+    'weight_decay': 1e-6,
+    
+    'validation_split': 0.1, # <<< ADDED: Use 10% of training data for validation
+    
+    'feature_source': 'proto_scores' 
+}
+
+==================================================
+📊 Linear Probe Final Test Accuracy: 27.34%
+==================================================
+
+when use CLS token vector instead of proto_scores
+==================================================
+Linear Probe Final Accuracy: 53.33%
+==================================================
+
+why CLS token doing better than proto_scores?
+
+2. MLP acc:
+
+==================================================
+🔬 MLP Probe Final Test Accuracy: 46.01%
+==================================================
+
+# --- Main Configuration ---
+config = {
+    'student_checkpoint_path': './saved_models/protovit_dino/best_model.pth',
+    'cub_train_dir': './datasets/cub200_cropped/train_cropped/',
+    'cub_test_dir': './datasets/cub200_cropped/test_cropped/',
+    'save_dir': './saved_models/protovit_dino/',
+    
+    'base_architecture': 'deit_base_patch16_224',
+    'img_size': 224,
+    'prototype_shape': (512, 768, 4), 
+    
+    'num_classes': 200,
+    'batch_size': 128,
+    'epochs': 200, # Set a high number, the script will effectively "early stop" by using the best model
+    'learning_rate': 1e-3,
+    'weight_decay': 1e-4,
+    'validation_split': 0.1, # Use 10% of training data for validation
+    
+    'feature_source': 'proto_scores' 
+}
+
+
+3. fine tune
+
+==================================================
+🔥 Fine-Tuning Final Test Accuracy: 59.30%
+==================================================
+
+config = {
+    'resume_from_checkpoint': './saved_models/protovit_dino/best_model.pth',
+    'start_epoch': 45,
+    'base_architecture': 'deit_base_patch16_224',
+    'img_size': 224,
+    'prototype_shape': (512, 768, 4),
+    'radius': 1, 'sig_temp': 100.0,
+    'train_dir': './datasets/cub200_cropped/train_cropped/',
+    'cub_root_dir': './datasets/CUB_200_2011/',
+    'attributes_json': './datasets/cub_attributes.json',
+    'warmup_epochs': 5, 'joint_epochs': 40, 'refinement_epochs': 10,
+    'warmup_lr': 3e-3, 'main_lr': 5e-5, 'refinement_lr': 1e-5,
+    'batch_size': 32, 'weight_decay': 0.04, 'teacher_momentum': 0.996,
+    'dino_out_dim': 4096, 'clip_out_dim': 512,
+    'lambda_dino': 1.0, 'lambda_attr': 0.5, 'lambda_clip': 0.5,
+    'lambda_proto_nce': 0.3, 'lambda_coh': 5e-4, 'lambda_decorr': 1e-7,
+    'save_dir': './saved_models/protovit_dino/', 'clip_model_name': 'ViT-B/32',
+}

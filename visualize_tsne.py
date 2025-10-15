@@ -11,13 +11,13 @@ from protovit_dino_model import ProtoViTBase
 # --- Main Configuration ---
 config = {
     # --- PATHS ---
-    'student_checkpoint_path': './saved_models/protovit_dino/student_epoch_10.pth',
+    'student_checkpoint_path': './saved_models/protovit_dino/best_model.pth',
     'output_file': './tsne_prototypes.png',
     
     # --- MODEL ARCHITECTURE (Must match the trained model) ---
-    'base_architecture': 'deit_small_patch16_224',
+    'base_architecture': 'deit_base_patch16_224',
     'img_size': 224,
-    'prototype_shape': (256, 384, 4), # Make sure this matches your trained model
+    'prototype_shape': (512, 768, 4), # Make sure this matches your trained model
     
     # --- t-SNE PARAMETERS ---
     'perplexity': 30,
@@ -62,7 +62,7 @@ def main():
     for i in range(0, tsne_results.shape[0], 10):
         plt.text(tsne_results[i, 0], tsne_results[i, 1], str(i), fontsize=8)
 
-    plt.title('t-SNE Visualization of 256 Learned Prototypes')
+    plt.title('t-SNE Visualization of 512 Learned Prototypes')
     plt.xlabel('t-SNE Dimension 1')
     plt.ylabel('t-SNE Dimension 2')
     plt.grid(True)

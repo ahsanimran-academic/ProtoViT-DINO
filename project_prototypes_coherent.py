@@ -23,7 +23,7 @@ config = {
     # --- MODEL ARCHITECTURE (Must match the trained model) ---
     'base_architecture': 'deit_base_patch16_224',
     'img_size': 224,
-    'prototype_shape': (256, 768, 4), 
+    'prototype_shape': (512, 768, 4), 
     
     # --- PROJECTION PARAMETERS ---
     'batch_size': 128,

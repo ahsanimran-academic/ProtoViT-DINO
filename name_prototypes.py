@@ -14,15 +14,15 @@ from protovit_dino_model import ProtoViTBase
 # --- Main Configuration ---
 config = {
     # --- PATHS ---
-    'student_checkpoint_path': './saved_models/protovit_dino/student_epoch_100.pth',
+    'student_checkpoint_path': './saved_models/protovit_dino/best_model.pth',
     'cub_root_dir': './datasets/CUB_200_2011/',
     'projection_dir': './prototype_projections/',
     'output_file': './prototype_analysis_v3.html',
     
     # --- MODEL ARCHITECTURE ---
-    'base_architecture': 'deit_small_patch16_224',
+    'base_architecture': 'deit_base_patch16_224',
     'img_size': 224,
-    'prototype_shape': (256, 384, 4),
+    'prototype_shape': (512, 768, 4),
     
     # --- NAMING PARAMETERS ---
     'top_k_names': 5,
@@ -68,31 +68,33 @@ def create_html_visualization(output_path, proto_info, M, K):
         f.write(html)
     print(f"Visualization saved to {output_path}")
 
-# <<< DEFINITIVE FIX: Rewritten get_pca_projection function >>>
+# <<< FIX: Replace the old get_pca_projection function with this corrected version >>>
 def get_pca_projection(prototypes, target_dim):
     """
     Computes a PCA-based projection matrix of shape (target_dim, source_dim).
-    This version is simpler and more robust.
+    This version correctly handles the component dimensions.
     """
-    M, D, K = prototypes.shape # D is the source dimension, e.g., 384
+    M, D, K = prototypes.shape # D is the source dimension, e.g., 768
     proto_flat = prototypes.permute(0, 2, 1).reshape(M * K, D).detach().cpu().numpy()
     
-    # The number of PCA components can't be more than the number of features.
+    # The number of PCA components can't be more than the number of features or samples.
     n_components = min(proto_flat.shape[0], D)
     
     pca = PCA(n_components=n_components)
     pca.fit(proto_flat)
     
-    # This matrix has shape (n_components, D), e.g., (384, 384)
+    # pca_matrix has shape (n_components, D), e.g., (min(4096, 768), 768) -> (768, 768)
     pca_matrix = torch.from_numpy(pca.components_).float()
     
     # Create the final projection matrix of the correct size, initialized to zeros
-    # This guarantees the shape is (target_dim, D), e.g., (512, 384)
+    # This guarantees the shape is (target_dim, D), e.g., (512, 768)
     projection_matrix = torch.zeros(target_dim, D)
     
+    # The number of rows to copy is the minimum of the available components and the target dimension
+    num_to_copy = min(n_components, target_dim)
+    
     # Copy the PCA components into the top part of the matrix.
-    # The remaining rows will be zero, which is a valid projection.
-    projection_matrix[:n_components, :] = pca_matrix
+    projection_matrix[:num_to_copy, :] = pca_matrix[:num_to_copy, :]
     
     return projection_matrix.to(prototypes.device)
 

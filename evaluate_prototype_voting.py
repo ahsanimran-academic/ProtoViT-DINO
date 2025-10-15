@@ -14,14 +14,14 @@ from protovit_dino_model import ProtoViTBase
 # --- Main Configuration ---
 config = {
     # --- PATHS ---
-    'student_checkpoint_path': './saved_models/protovit_dino/student_epoch_100.pth',
+    'student_checkpoint_path': './saved_models/protovit_dino/best_model.pth',
     'cub_train_dir': './datasets/cub200_cropped/train_cropped/',
     'cub_test_dir': './datasets/cub200_cropped/test_cropped/',
     
     # --- MODEL ARCHITECTURE (Must match the trained model) ---
-    'base_architecture': 'deit_small_patch16_224',
+    'base_architecture': 'deit_base_patch16_224',
     'img_size': 224,
-    'prototype_shape': (256, 384, 4), # M, d, K
+    'prototype_shape': (512, 768, 4), # M, d, K
     
     # --- EVALUATION PARAMETERS ---
     'num_classes': 200,

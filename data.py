@@ -5,7 +5,7 @@ import os
 from torchvision import datasets, transforms
 from PIL import Image
 
-# Use the same augmentations you had before
+
 class SSLAugmentation:
     def __init__(self, img_size=224):
         # Using a slightly less aggressive crop scale, better for fine-grained datasets

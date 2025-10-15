@@ -1,5 +1,6 @@
 datasets/
 prototype_projections/
+prototype_projections_coherent/
 # Python
 __pycache__/
 *.pyc
@@ -13,6 +14,8 @@ outputs/
 wandb/
 logs/
 *.log
+*.zip
+*.png
 saved_models/
 
 # Notebooks & misc
